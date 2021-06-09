@@ -135,6 +135,17 @@ char* duraciones[] = {"00:20",
 	"00:14",
 	"00:12",
 	"00:20"};
+	
+uint8_t duracionesInt [10][2] = {{2,0},
+	{3, 42},
+	{3, 25},
+	{2, 51},
+	{3, 9},
+	{3, 1},
+	{3, 8},
+	{2, 34},
+	{3, 32},
+	{3, 30}};
 
 //MP3 
 void USART_Init(unsigned long BAUDRATE){
@@ -171,34 +182,24 @@ void sendCommand(uint8_t command, uint8_t dat1, uint8_t dat2){
 }
 
 void controlMP3(){
-	_delay_ms(50); //Se ejecuta cada 50 ms posiblemente 20 ms
+	//_delay_ms(50); //Se ejecuta cada 50 ms posiblemente 20 ms
 	if((ctrlMP3Flag & 0xF0) == UNMUTE){
 		sendCommand(CMD_SET_VOLUME, 0, volumen);
-	}else if((ctrlMP3Flag & 0xF0) == MUTE){
+		}else if((ctrlMP3Flag & 0xF0) == MUTE){
 		sendCommand(CMD_SET_VOLUME, 0, 0);
-	}else if((ctrlMP3Flag & 0xF0) == VOLUMEN_SUBIR){
+		}else if((ctrlMP3Flag & 0xF0) == VOLUMEN_SUBIR){
 		sendCommand(VOLUME_UP_ONE, 0, 0);
-	}else if((ctrlMP3Flag & 0xF0) == VOLUMEN_BAJAR){
+		}else if((ctrlMP3Flag & 0xF0) == VOLUMEN_BAJAR){
 		sendCommand(VOLUME_DOWN_ONE, 0, 0);
 	}
 
 	if((ctrlMP3Flag & 0x0F) == PLAY_NUM_CANCION){
-		//num_song_cmd = numCancionNavegar;
 		sendCommand(CMD_PLAY_W_INDEX, 0, (numCancionDisplay << 1)+1);
-	}else if((ctrlMP3Flag & 0x0F) == ANTERIOR){
-    	sendCommand(PREV_SONG, 0, 0);
-		_delay_ms(50);
-		sendCommand(PREV_SONG, 0, 0);
-	}else if((ctrlMP3Flag & 0x0F) == PLAY){
+		}else if((ctrlMP3Flag & 0x0F) == PLAY){
 		sendCommand(CMD_PLAY, 0, 0);
-	}else if((ctrlMP3Flag & 0x0F) == PAUSE){
+		}else if((ctrlMP3Flag & 0x0F) == PAUSE){
 		sendCommand(CMD_PAUSE, 0, 0);
-	}else if((ctrlMP3Flag & 0x0F) == SIGUIENTE){
-		sendCommand(NEXT_SONG, 0, 0);
-		_delay_ms(50);
-		sendCommand(NEXT_SONG, 0, 0);
 	}
-	
 	ctrlMP3Flag = 0;
 }
 
@@ -209,15 +210,15 @@ void leerTeclado(){
 	
 	for(unsigned short int cont_filas = 0; cont_filas < 4 ; cont_filas++){
 		PORTC = ~(1<<cont_filas);
-		_delay_ms(10);
+		_delay_us(1);
 		lector = PINC & 0xF0;
 		if(lector==0xF0){
 			valor_matricial += 4;
 			}else{
-			_delay_ms(10);
-			lector = PINC & 0xF0;
-			if(lector==0xF0)
-			continue;
+			//    _delay_ms(1);
+			//    lector = PINC & 0xF0;
+			//    if(lector==0xF0)
+			//     continue;
 			if(lector>=0xE0){
 				valor_matricial -= 3;
 				}else if (lector >= 0xD0){
@@ -233,13 +234,13 @@ void leerTeclado(){
 
 void procesarMatricial(){
 	static unsigned short int displayMatriz[] = {1, 2, 3, 0xFF, 4, 5, 6, 0xFF, 7, 8 , 9, 10, 11, 0, 12, 13};
-		//10 = Enter, 11 = play-pause, 12 = Anterior, 13 = Siguiente
-    leerTeclado();
+	//10 = Enter, 11 = play-pause, 12 = Anterior, 13 = Siguiente
+	leerTeclado();
 	if (valor_matricial < 16){
 		valor_matricial = displayMatriz[valor_matricial];
-        PORTA |= (1 << BUZZER);
+		PORTA |= (1 << BUZZER);
 		segundos_menu = 0;
-	}else{
+		}else{
 		return;
 	}
 	
@@ -247,7 +248,7 @@ void procesarMatricial(){
 		song_buffer[1] = song_buffer[0]; //Pasamos las unidades a las decenas
 		song_buffer[0] = valor_matricial;
 		ctrlMenuFlag = (1 << ESCOGER);
-	}else if (valor_matricial == 10){ //Enter
+		}else if (valor_matricial == 10){ //Enter
 		if (ctrlMenuFlag & (1 << ESCOGER)){
 			numCancionDisplay = song_buffer[0] + 10*song_buffer[1];
 			numCancionDisplay -= 1;
@@ -256,7 +257,6 @@ void procesarMatricial(){
 			song_buffer[0] = 0;
 			song_buffer[1] = 0;
 			if (numCancionDisplay <= CANCION_MAX){
-				//sendCommand(CMD_PLAY_W_INDEX, (int16_t)numCancionDisplay);
 				ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY_NUM_CANCION;
 				ctrlMenuFlag = (1 << REPRODUCIR);
 				numCancionActual = numCancionDisplay;
@@ -270,59 +270,50 @@ void procesarMatricial(){
 	}
 	else if(valor_matricial == 11){ //Play-pause
 		if (play_pause){
-			//sendCommand(CMD_PAUSE, 0x0000);
-			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PAUSE; 
+			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PAUSE;
 			play_pause = 0;
-		}else{
-			//sendCommand(CMD_PLAY, 0x0000);
+			}else{
 			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY;
-			play_pause = 1; 
+			play_pause = 1;
 		}
 		ctrlMenuFlag = (1 << REPRODUCIR);
-	}else if(valor_matricial == 12){ //Anterior
+		}else if(valor_matricial == 12){ //Anterior
 		if (numCancionActual > 0){
-			//sendCommand(PREV_SONG, 0x0000);
-			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | ANTERIOR; 
 			numCancionActual -= 1;
-		}else{
-			//sendCommand(CMD_PLAY_W_INDEX, (int16_t)CANCION_MAX);
-			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY_NUM_CANCION; 
+			}else{
 			numCancionActual = CANCION_MAX-1;
 			
 		}
+		ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY_NUM_CANCION;
 		ctrlMenuFlag = (1 << REPRODUCIR);
 		numCancionDisplay = numCancionActual;
 		play_pause = 1;
 		minutos = 0;
 		segundos = 0;
-	}else if(valor_matricial == 13){//Siguente
+		}else if(valor_matricial == 13){//Siguente
 		if (numCancionActual < CANCION_MAX -1 ){
-			//sendCommand(NEXT_SONG, 0x0000);
-			//numCancionNavegar = numCancionActual*2;
-			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | SIGUIENTE; 
 			numCancionActual += 1;
 			
-		}else{
-			//sendCommand(CMD_PLAY_W_INDEX, 0x0000);
-			ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY_NUM_CANCION; 
+			}else{
 			numCancionActual = 0;
-			//numCancionNavegar = numCancionActual*2;
 		}
+		ctrlMP3Flag = (ctrlMP3Flag & 0xF0) | PLAY_NUM_CANCION;
 		numCancionDisplay = numCancionActual;
 		ctrlMenuFlag = (1 << REPRODUCIR);
 		play_pause = 1;
 		minutos = 0;
 		segundos = 0;
 	}
-    if (PORTA & (1 << BUZZER)){
-        _delay_ms(200);
-        PORTA &= ~(1 << BUZZER);
-    }       
-        
+	if (PORTA & (1 << BUZZER)){
+		_delay_ms(200);
+		PORTA &= ~(1 << BUZZER);
+	}
+	
 }
-
-//Joystick
-ISR(ADC_vect){
+//ISR(ADC_vect){
+void leerJoystick(){
+	if (!(ADCSRA & (1 << ADIF)))
+	return;
 	adcBuffer = ADCL;
 	adcBuffer = ADCH;
 	if(!(ADMUX & 1)){ //REVISAMOS SI  ADMUX ES PAR PARA SABER QUÉ ADC TOCA REVISAR
@@ -673,15 +664,22 @@ int main(void){
 	ADCSRA |= (1 << ADSC);
 	sei();
 
-    while (1) {
-		controlMP3(); // duración 50 ms
-		//if (contTimer % 1000 < 100){
-			//controlMP3();
-		//}
-		procesarMatricial();
-		if (contTimer % 800 > 400)
-			mostrarMenu();
-		
-    }
+   while (1) {
+	   
+	   //controlMP3(); // duración_MAX > 62 ms
+	   
+	   if (contTimer % 200 < 10)
+	   mostrarMenu();
+	   
+	   if (contTimer % 300 < 10)
+	   controlMP3();
+	   
+	   if (contTimer % 100 < 10)
+	   leerJoystick();
+	   
+	   if (contTimer % 100 < 10)
+	   procesarMatricial();
+	   
+   }
 }
 
